@@ -20,19 +20,25 @@ import (
 	"context"
 	"fmt"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/klog/v2"
 
 	fedcorev1a1 "github.com/kubewharf/kubeadmiral/pkg/apis/core/v1alpha1"
 	"github.com/kubewharf/kubeadmiral/pkg/client/generic"
 	"github.com/kubewharf/kubeadmiral/pkg/controllermanager"
 	"github.com/kubewharf/kubeadmiral/pkg/controllers/automigration"
+	"github.com/kubewharf/kubeadmiral/pkg/controllers/common"
 	controllercontext "github.com/kubewharf/kubeadmiral/pkg/controllers/context"
 	"github.com/kubewharf/kubeadmiral/pkg/controllers/federate"
 	"github.com/kubewharf/kubeadmiral/pkg/controllers/federatedcluster"
 	"github.com/kubewharf/kubeadmiral/pkg/controllers/federatedtypeconfig"
 	"github.com/kubewharf/kubeadmiral/pkg/controllers/follower"
 	"github.com/kubewharf/kubeadmiral/pkg/controllers/monitor"
+	"github.com/kubewharf/kubeadmiral/pkg/controllers/policyrc"
 	"github.com/kubewharf/kubeadmiral/pkg/controllers/scheduler"
+	"github.com/kubewharf/kubeadmiral/pkg/controllers/status"
+	"github.com/kubewharf/kubeadmiral/pkg/controllers/statusaggregator"
+	"github.com/kubewharf/kubeadmiral/pkg/controllers/sync"
 	"github.com/kubewharf/kubeadmiral/pkg/controllers/util"
 	schemautil "github.com/kubewharf/kubeadmiral/pkg/controllers/util/schema"
 )
@@ -241,4 +247,102 @@ func startAutoMigrationController(
 
 func isAutoMigrationControllerEnabled(typeConfig *fedcorev1a1.FederatedTypeConfig) bool {
 	return typeConfig.Spec.AutoMigration != nil && typeConfig.Spec.AutoMigration.Enabled
+}
+
+func startStatusController(
+	ctx context.Context,
+	controllerCtx *controllercontext.Context,
+	typeConfig *fedcorev1a1.FederatedTypeConfig,
+) (controllermanager.Controller, error) {
+	controllerConfig := controllerConfigFromControllerContext(controllerCtx)
+	controller, err := status.NewKubeFedStatusController(controllerConfig, typeConfig)
+	if err != nil {
+		return nil, fmt.Errorf("error creating status controller: %w", err)
+	}
+
+	go controller.Run(ctx.Done())
+
+	return controller, nil
+}
+
+func isStatusControllerEnabled(typeConfig *fedcorev1a1.FederatedTypeConfig) bool {
+	return typeConfig.GetStatusEnabled()
+}
+
+func startStatusAggregationController(
+	ctx context.Context,
+	controllerCtx *controllercontext.Context,
+	typeConfig *fedcorev1a1.FederatedTypeConfig,
+) (controllermanager.Controller, error) {
+	controllerConfig := controllerConfigFromControllerContext(controllerCtx)
+	controller, err := statusaggregator.NewStatusAggregator(controllerConfig, typeConfig)
+	if err != nil {
+		return nil, fmt.Errorf("error creating status aggregation controller: %w", err)
+	}
+
+	go controller.Run(ctx.Done())
+
+	return controller, nil
+}
+
+func isStatusAggregationControllerEnabled(typeConfig *fedcorev1a1.FederatedTypeConfig) bool {
+	return typeConfig.GetStatusAggregationEnabled()
+}
+
+func startPolicyRCController(
+	ctx context.Context,
+	controllerCtx *controllercontext.Context,
+	typeConfig *fedcorev1a1.FederatedTypeConfig,
+) (controllermanager.Controller, error) {
+	controllerConfig := controllerConfigFromControllerContext(controllerCtx)
+	controller, err := policyrc.NewController(controllerConfig, typeConfig)
+	if err != nil {
+		return nil, fmt.Errorf("error creating policy rc controller: %w", err)
+	}
+
+	go controller.Run(ctx.Done())
+
+	return controller, nil
+}
+
+func isPolicyRCControllerEnabled(typeConfig *fedcorev1a1.FederatedTypeConfig) bool {
+	return typeConfig.GetPolicyRcEnabled()
+}
+
+func startSyncController(
+	ctx context.Context,
+	controllerCtx *controllercontext.Context,
+	typeConfig *fedcorev1a1.FederatedTypeConfig,
+) (controllermanager.Controller, error) {
+	controllerConfig := controllerConfigFromControllerContext(controllerCtx)
+
+	var fnsAPIResource *metav1.APIResource
+	if typeConfig.GetNamespaced() {
+		fns, err := controllerCtx.FedClientset.CoreV1alpha1().FederatedTypeConfigs().Get(ctx, common.NamespaceResource, metav1.GetOptions{})
+		if err != nil {
+			return nil, fmt.Errorf("failed to get ftc for namespaces: %w", err)
+		}
+
+		apiResource := fns.GetFederatedType()
+		fnsAPIResource = &apiResource
+	}
+
+	revInformer := controllerCtx.KubeInformerFactory.Apps().V1().ControllerRevisions().Informer()
+	controller, err := sync.NewKubeFedSyncController(
+		controllerConfig,
+		typeConfig,
+		fnsAPIResource,
+		revInformer.GetStore(),
+		revInformer.GetController(),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("error created sync controller: %w", err)
+	}
+
+	go controller.Run(ctx.Done())
+	return controller, nil
+}
+
+func isSyncControllerEnabled(typeConfig *fedcorev1a1.FederatedTypeConfig) bool {
+	return typeConfig.GetPropagationEnabled()
 }

@@ -71,7 +71,7 @@ type Controller struct {
 
 func StartController(controllerConfig *util.ControllerConfig,
 	stopChan <-chan struct{}, typeConfig *fedcorev1a1.FederatedTypeConfig) error {
-	controller, err := newController(controllerConfig, typeConfig)
+	controller, err := NewController(controllerConfig, typeConfig)
 	if err != nil {
 		return err
 	}
@@ -80,7 +80,7 @@ func StartController(controllerConfig *util.ControllerConfig,
 	return nil
 }
 
-func newController(controllerConfig *util.ControllerConfig,
+func NewController(controllerConfig *util.ControllerConfig,
 	typeConfig *fedcorev1a1.FederatedTypeConfig) (*Controller, error) {
 	federatedAPIResource := typeConfig.GetFederatedType()
 
@@ -211,6 +211,10 @@ func (c *Controller) Run(stopChan <-chan struct{}) {
 	}
 	c.persistPpWorker.Run(stopChan)
 	c.persistOpWorker.Run(stopChan)
+}
+
+func (c *Controller) IsControllerReady() bool {
+	return c.HasSynced()
 }
 
 func (c *Controller) HasSynced() bool {

@@ -94,7 +94,7 @@ type StatusAggregator struct {
 
 func StartStatusAggregator(controllerConfig *util.ControllerConfig,
 	stopChan <-chan struct{}, typeConfig *fedcorev1a1.FederatedTypeConfig) error {
-	aggregator, err := newStatusAggregator(controllerConfig, typeConfig)
+	aggregator, err := NewStatusAggregator(controllerConfig, typeConfig)
 	if err != nil {
 		return err
 	}
@@ -103,7 +103,7 @@ func StartStatusAggregator(controllerConfig *util.ControllerConfig,
 	return nil
 }
 
-func newStatusAggregator(controllerConfig *util.ControllerConfig,
+func NewStatusAggregator(controllerConfig *util.ControllerConfig,
 	typeConfig *fedcorev1a1.FederatedTypeConfig) (*StatusAggregator, error) {
 	federatedAPIResource := typeConfig.GetFederatedType()
 	targetAPIResource := typeConfig.GetTargetType()
@@ -192,6 +192,10 @@ func newStatusAggregator(controllerConfig *util.ControllerConfig,
 	}
 	klog.Infof("Status aggregator %q NewResourceInformer", federatedAPIResource.Kind)
 	return a, nil
+}
+
+func (a *StatusAggregator) IsControllerReady() bool {
+	return a.HasSynced()
 }
 
 func (a *StatusAggregator) Run(stopChan <-chan struct{}) {

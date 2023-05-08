@@ -115,10 +115,6 @@ type KubeFedSyncController struct {
 
 	controllerHistory history.Interface
 
-	controllerRevisionStore cache.Store
-
-	controllerRevisionController cache.Controller
-
 	revListerSynced cache.InformerSynced
 
 	limitedScope bool
@@ -137,7 +133,7 @@ func StartKubeFedSyncController(
 	controllerRevisionStore cache.Store,
 	controllerRevisionController cache.Controller,
 ) error {
-	controller, err := newKubeFedSyncController(
+	controller, err := NewKubeFedSyncController(
 		controllerConfig,
 		typeConfig,
 		fedNamespaceAPIResource,
@@ -155,8 +151,8 @@ func StartKubeFedSyncController(
 	return nil
 }
 
-// newKubeFedSyncController returns a new sync controller for the configuration
-func newKubeFedSyncController(
+// NewKubeFedSyncController returns a new sync controller for the configuration
+func NewKubeFedSyncController(
 	controllerConfig *util.ControllerConfig,
 	typeConfig *fedcorev1a1.FederatedTypeConfig,
 	fedNamespaceAPIResource *metav1.APIResource,
@@ -187,8 +183,6 @@ func newKubeFedSyncController(
 		typeConfig:                    typeConfig,
 		hostClusterClient:             client,
 		limitedScope:                  controllerConfig.LimitedScope(),
-		controllerRevisionStore:       controllerRevisionStore,
-		controllerRevisionController:  controllerRevisionController,
 		metrics:                       controllerConfig.Metrics,
 	}
 
@@ -296,6 +290,11 @@ func (s *KubeFedSyncController) Run(stopChan <-chan struct{}) {
 		s.clusterDeliverer.Stop()
 	}()
 }
+
+func (*KubeFedSyncController) IsControllerReady() bool {
+	return true
+}
+
 
 // Check whether all data stores are in sync. False is returned if any of the informer/stores is not yet
 // synced with the corresponding api server.

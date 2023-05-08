@@ -99,7 +99,7 @@ func StartKubeFedStatusController(
 	stopChan <-chan struct{},
 	typeConfig *fedcorev1a1.FederatedTypeConfig,
 ) error {
-	controller, err := newKubeFedStatusController(controllerConfig, typeConfig)
+	controller, err := NewKubeFedStatusController(controllerConfig, typeConfig)
 	if err != nil {
 		return err
 	}
@@ -111,8 +111,8 @@ func StartKubeFedStatusController(
 	return nil
 }
 
-// newKubeFedStatusController returns a new status controller for the federated type
-func newKubeFedStatusController(
+// NewKubeFedStatusController returns a new status controller for the federated type
+func NewKubeFedStatusController(
 	controllerConfig *util.ControllerConfig,
 	typeConfig *fedcorev1a1.FederatedTypeConfig,
 ) (*KubeFedStatusController, error) {
@@ -236,6 +236,11 @@ func (s *KubeFedStatusController) Run(stopChan <-chan struct{}) {
 		s.clusterDeliverer.Stop()
 	}()
 }
+
+func (*KubeFedStatusController) IsControllerReady() bool {
+	return true
+}
+
 
 // Check whether all data stores are in sync. False is returned if any of the informer/stores is not yet
 // synced with the corresponding api server.

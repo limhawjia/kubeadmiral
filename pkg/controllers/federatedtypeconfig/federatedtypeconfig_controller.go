@@ -219,6 +219,7 @@ func (c *Controller) reconcile(qualifiedName common.QualifiedName) worker.Result
 	namespaceAutoPropagationEnabled := controllers.Has(nsautoprop.PrefixedNamespaceAutoPropagationControllerName)
 	overridePolicyEnabled := controllers.Has(override.PrefixedControllerName)
 
+	// NOTE: this block is never run now that TargetNamespace is always NamespaceAll
 	limitedScope := c.controllerConfig.TargetNamespace != metav1.NamespaceAll
 	if limitedScope && syncEnabled && !typeConfig.GetNamespaced() {
 		_, ok := c.getStopChannel(typeConfig.Name)
