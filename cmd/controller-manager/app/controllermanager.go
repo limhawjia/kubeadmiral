@@ -92,7 +92,7 @@ var knownFTCSubControllers = map[string]controllermanager.FTCSubControllerInitFu
 	},
 }
 
-var controllersDisabledByDefault = sets.New(MonitorControllerName, SyncControllerName)
+var controllersDisabledByDefault = sets.New(MonitorControllerName, TypeConfigControllerName)
 
 // Run starts the controller manager according to the given options.
 func Run(ctx context.Context, opts *options.Options) {
