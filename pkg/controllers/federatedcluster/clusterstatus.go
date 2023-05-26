@@ -33,6 +33,7 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/informers"
+	v1 "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/retry"
 	"k8s.io/klog/v2"
@@ -84,6 +85,16 @@ func collectIndividualClusterStatus(
 		return fmt.Errorf("failed to get federated kube informer factory: %w", err)
 	}
 
+	if !clusterKubeInformer.Core().V1().Pods().Informer().HasSynced() {
+		return fmt.Errorf("cluster pod informer not synced")
+	}
+	if !clusterKubeInformer.Core().V1().Nodes().Informer().HasSynced() {
+		return fmt.Errorf("cluster node informer not synced")
+	}
+
+	podLister := clusterKubeInformer.Core().V1().Pods().Lister()
+	nodeLister := clusterKubeInformer.Core().V1().Nodes().Lister()
+
 	discoveryClient := clusterKubeClient.Discovery()
 	cluster = cluster.DeepCopy()
 
@@ -105,7 +116,7 @@ func collectIndividualClusterStatus(
 
 	// we skip updating cluster resources and api resources if cluster is not ready
 	if readyStatus == corev1.ConditionTrue {
-		if err := updateClusterResources(ctx, &cluster.Status, clusterKubeInformer); err != nil {
+		if err := updateClusterResources(ctx, &cluster.Status, podLister, nodeLister); err != nil {
 			logger.Error(err, "Failed to update cluster resources")
 			readyStatus = corev1.ConditionFalse
 			readyReason = ClusterResourceCollectionFailedReason
@@ -161,19 +172,9 @@ func checkReadyByHealthz(
 func updateClusterResources(
 	ctx context.Context,
 	clusterStatus *fedcorev1a1.FederatedClusterStatus,
-	clusterKubeInformer informers.SharedInformerFactory,
+	podLister v1.PodLister,
+	nodeLister v1.NodeLister,
 ) error {
-	podLister := clusterKubeInformer.Core().V1().Pods().Lister()
-	podsSynced := clusterKubeInformer.Core().V1().Pods().Informer().HasSynced
-	nodeLister := clusterKubeInformer.Core().V1().Nodes().Lister()
-	nodesSynced := clusterKubeInformer.Core().V1().Nodes().Informer().HasSynced
-
-	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
-	defer cancel()
-	if !cache.WaitForNamedCacheSync("federated-cluster-controller-status-collect", ctx.Done(), podsSynced, nodesSynced) {
-		return fmt.Errorf("timeout waiting for node and pod informer sync")
-	}
-
 	nodes, err := nodeLister.List(labels.Everything())
 	if err != nil {
 		return fmt.Errorf("failed to list nodes: %w", err)
