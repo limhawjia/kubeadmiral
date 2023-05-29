@@ -157,7 +157,7 @@ func NewScheduler(
 	clusterInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
 		FilterFunc: func(obj interface{}) bool {
 			cluster := obj.(*fedcorev1a1.FederatedCluster)
-			return util.IsClusterJoined(&cluster.Status)
+			return util.IsClusterJoined(&cluster.Status) && util.IsClusterReady(&cluster.Status)
 		},
 		Handler: cache.ResourceEventHandlerFuncs{
 			AddFunc:    func(obj interface{}) { s.enqueueFederatedObjectsForCluster(obj.(pkgruntime.Object)) },
