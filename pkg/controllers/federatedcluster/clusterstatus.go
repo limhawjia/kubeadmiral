@@ -32,9 +32,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/discovery"
-	"k8s.io/client-go/informers"
-	v1 "k8s.io/client-go/listers/core/v1"
-	"k8s.io/client-go/tools/cache"
+	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/util/retry"
 	"k8s.io/klog/v2"
 
@@ -172,8 +170,8 @@ func checkReadyByHealthz(
 func updateClusterResources(
 	ctx context.Context,
 	clusterStatus *fedcorev1a1.FederatedClusterStatus,
-	podLister v1.PodLister,
-	nodeLister v1.NodeLister,
+	podLister corev1listers.PodLister,
+	nodeLister corev1listers.NodeLister,
 ) error {
 	nodes, err := nodeLister.List(labels.Everything())
 	if err != nil {
